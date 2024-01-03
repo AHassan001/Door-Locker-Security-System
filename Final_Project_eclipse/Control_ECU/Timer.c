@@ -1,0 +1,107 @@
+/******************************************************************************
+ *
+ * Module: Timer1 Driver
+ *
+ * File Name: Timer.c
+ *
+ * Description: source file for timer1 driver
+ *
+ * Author: Abdelrahman Maher
+ *
+ *******************************************************************************/
+
+#include <avr/interrupt.h>
+#include "Timer.h"
+#include <avr/io.h>
+
+static volatile void (*g_callBackPtr)(void) = NULL_PTR;
+
+ISR(TIMER1_OVF_vect)
+{
+	if( g_callBackPtr != NULL_PTR)
+	{
+		(*g_callBackPtr)();
+	}
+}
+
+ISR(TIMER1_COMPA_vect)
+{
+	if(g_callBackPtr != NULL_PTR)
+	{
+		(*g_callBackPtr)();
+	}
+
+}
+
+
+void PWM_Timer0_Start (uint8 duty_cycle)
+{
+
+	TCNT0 = 0;
+
+	if (duty_cycle == 25)
+	{
+		OCR0 = 63;
+	}
+	else if (duty_cycle == 50)
+	{
+		OCR0 = 127 ;
+	}
+	else if (duty_cycle == 75)
+	{
+		OCR0 = 191;
+	}
+	else if (duty_cycle == 100)
+	{
+		OCR0  = 255;
+	}
+	DDRB  |= (1<<PB3);
+
+	TCCR0 = (1<<WGM00) | (1<<WGM01) | (1<<COM01) | (1<<CS01);
+}
+
+void Timer1_init(const Timer1_ConfigType * Config_Ptr)
+{
+	TCNT1 = Config_Ptr-> initial_value;
+
+	if ( Config_Ptr-> mode == normal)
+	{
+		TCCR1A |= (1<<FOC1A); /* Compare unit A */
+		TCCR1B &= ~(1<<WGM12); /* Normal mode */
+		TCCR1B = (TCCR1B & 0xF8) | Config_Ptr-> prescaler;
+		TIMSK |= (1<<TOIE1); /* Enables interrupt of overflow */
+	}
+
+	else if(Config_Ptr-> mode == compare)
+	{
+		TCCR1A |= (1<<FOC1A); /* Compare unit A */
+		TCCR1B |= (1<<WGM12); /* CTC */
+		TCCR1B = (TCCR1B & 0xF8) | Config_Ptr-> prescaler;
+
+		OCR1A = Config_Ptr-> compare_value; /* Output compare register A */
+		TIMSK |= (1<<OCIE1A); /*Enables interrupt of Compare Match A*/
+	}
+
+	else if(Config_Ptr-> mode == PWM)
+	{
+		TCCR1A |= (1<<WGM10) | (1<<WGM11);
+		TCCR1B |= (1<<WGM12) | (1<<WGM13);
+		TCCR1B = (TCCR1B & 0xF8) | Config_Ptr-> prescaler;
+		OCR1A = Config_Ptr-> compare_value;
+	}
+}
+
+void Timer1_deInit(void)
+{
+	TCCR1A &= 0x0B; 	/* FOC1A/WGM11/WGM10 =0*/
+	TCCR1B &= 0xE0;     /* No clock source(Timer/counter stop)and WGM13/WGM12 =0 */
+	TCNT1 = 0;			/* clear the initial value */
+	TIMSK &= ~(1<<OCIE1A); /* disable interrupt of overflow */
+	TIMSK &= ~(1<<TOIE1); /*disable interrupt of Compare Match A*/
+}
+
+void Timer1_setCallBack(void(*a_ptr)(void))
+{
+	g_callBackPtr = a_ptr;
+}
+

@@ -1,0 +1,51 @@
+/******************************************************************************
+ *
+ * Module: control ECU
+ *
+ * File Name: Control_ECU.c
+ *
+ * Description: Source file for the control ECU
+ *
+ * Author: Abdelrahman Maher
+ *
+ *******************************************************************************/
+
+#include "uart.h"
+
+
+void main(void)
+{
+	UART_ConfigType Uart_config ={eight_bit, disabled, one_bit, 9600};
+	UART_init(&Uart_config);
+
+	while(1)
+	{
+		uint8 password[5];
+		uint8 re_password[5];
+		uint8 check_pass_eeprom[5];
+
+		UART_receiveString(password);
+
+		UART_receiveString(re_password);
+
+		if(password == re_password)
+		{
+			UART_sendByte(1);
+			/*save the password in eeprom*/
+		}
+		else
+		{
+			UART_sendByte(0);
+		}
+
+		if(check_pass_eeprom == password)
+		{
+			UART_receiveString(check_pass_eeprom);
+			/*
+			 * Motor
+			 * display a message on lcd
+			 * motor in diffrent direction
+			 * */
+		}
+	}
+}

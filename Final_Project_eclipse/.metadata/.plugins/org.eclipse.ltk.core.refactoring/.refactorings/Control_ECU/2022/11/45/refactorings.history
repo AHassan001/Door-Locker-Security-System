@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">&#x0A;<refactoring comment="Rename resource &apos;Control_ECU/pwm_driver.c&apos; to &apos;Timer.c&apos;" description="Rename resource &apos;pwm_driver.c&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="pwm_driver.c" name="Timer.c" stamp="1667490176659" updateReferences="true"/>&#x0A;<refactoring comment="Rename resource &apos;Control_ECU/pwm_driver.h&apos; to &apos;Timer.h&apos;" description="Rename resource &apos;pwm_driver.h&apos;" flags="7" id="org.eclipse.ltk.core.refactoring.rename.resource" input="pwm_driver.h" name="Timer.h" stamp="1667490190191" updateReferences="true"/>
+</session>

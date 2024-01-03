@@ -1,0 +1,67 @@
+/******************************************************************************
+ *
+ * Module: DC-Motor
+ *
+ * File Name: dc_motor.c
+ *
+ * Description: Source file for the Dc Motor driver
+ *
+ * Author: Abdelrahman Maher
+ *
+ *******************************************************************************/
+
+
+#include "dc_motor.h"
+#include "gpio.h"
+#include "common_macros.h"
+#include <avr/io.h>
+#include "Timer.h"
+
+/*******************************************************************************
+ *                           Global Variables                                  *
+ *******************************************************************************/
+
+uint8 g_speed;
+
+/*******************************************************************************
+ *                      Functions Definitions                                  *
+ *******************************************************************************/
+
+/*
+ * Description : Function to initialize the Dc Motor driver
+ *
+ */
+void DcMotor_init(void)
+{
+	GPIO_setupPinDirection(DC_MOTOR_PORT_ID_S1 , DC_MOTOR_PIN_ID_S1 , PIN_OUTPUT);
+	GPIO_setupPinDirection(DC_MOTOR_PORT_ID_S2 , DC_MOTOR_PIN_ID_S2 , PIN_OUTPUT);
+
+	GPIO_writePin(DC_MOTOR_PORT_ID_S1,DC_MOTOR_PIN_ID_S1,LOGIC_LOW);
+	GPIO_writePin(DC_MOTOR_PORT_ID_S2,DC_MOTOR_PIN_ID_S2,LOGIC_LOW);
+}
+
+void DcMotor_Rotate(  DcMotor_state state, uint8 g_speed);
+{
+	switch (state)
+	{
+	case stop :
+		GPIO_writePin(DC_MOTOR_PORT_ID_S1,DC_MOTOR_PIN_ID_S1,LOGIC_LOW);
+		GPIO_writePin(DC_MOTOR_PORT_ID_S2,DC_MOTOR_PIN_ID_S2,LOGIC_LOW);
+		break;
+
+	case clockwise:
+		GPIO_writePin(DC_MOTOR_PORT_ID_S1,DC_MOTOR_PIN_ID_S1,LOGIC_HIGH);
+		GPIO_writePin(DC_MOTOR_PORT_ID_S2,DC_MOTOR_PIN_ID_S2,LOGIC_LOW);
+		PWM_Timer0_Start(g_speed);
+		break ;
+
+	case anticlockwise:
+		GPIO_writePin(DC_MOTOR_PORT_ID_S1,DC_MOTOR_PIN_ID_S1,LOGIC_LOW);
+		GPIO_writePin(DC_MOTOR_PORT_ID_S2,DC_MOTOR_PIN_ID_S2,LOGIC_HIGH);
+		PWM_Timer0_Start(g_speed);
+		break;
+	}
+}
+
+
+

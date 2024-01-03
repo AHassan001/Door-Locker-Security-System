@@ -1,0 +1,282 @@
+/******************************************************************************
+ *
+ * Module: control ECU
+ *
+ * File Name: Control_ECU.c
+ *
+ * Description: Source file for the control ECU
+ *
+ * Author: Abdelrahman Maher
+ *
+ *******************************************************************************/
+
+#include "Control_ECU.h"
+
+
+int main(void)
+{
+	uint8 state;
+
+	SREG |=(1<<7);
+
+	DcMotor_init();
+	Buzzer_init();
+
+	UART_ConfigType Uart_config ={eight_bit, disabled, one_bit, 9600};
+	UART_init(&Uart_config);
+
+	TWI_ConfigType Twi_Config ={0x01, clk_div_4};
+	TWI_init(&Twi_Config);
+
+	Timer1_ConfigType TIMER1_Config = {0, 31250, clock_256, compare};
+	Timer1_init(&TIMER1_Config);
+	Timer1_setCallBack(timer1ControlCallBack);
+	/*
+	 * F timer = (8*10^6/256) = 31250
+	 * T timer = (1/31250) = 32*10^-6
+	 * T = 32*10^-6 * levels
+	 * 1s = 32*10^-6 * levels
+	 * levels = 31250 level
+	 * */
+
+	while ( UART_recieveByte() != ECU_READY);
+	UART_sendByte(ECU_READY);
+
+	while(1)
+	{
+		state = check_password_first_time();
+
+		check_state(state);
+	}
+}
+
+uint8 check_password_first_time(void)
+{
+	uint8 password[no_of_Password];
+	uint8 re_password[no_of_Password];
+	uint8 j,state;
+
+	UART_sendByte(ECU_READY);
+	_delay_ms(50);
+
+	for(j=0; j < no_of_Password; j++)
+	{
+		password[j] = UART_recieveByte();
+		_delay_ms(50);
+	}
+	password[no_of_Password]='\0';
+
+	UART_sendByte(ECU_READY);
+	_delay_ms(50);
+
+	for(j=0; j < no_of_Password ;j++)
+	{
+		re_password[j] = UART_recieveByte();
+		_delay_ms(50);
+	}
+	re_password[no_of_Password]='\0';
+
+	state = ComparePassword(password,re_password);
+
+	if (state == correct_password)
+	{
+		save_in_eeprom (re_password);
+
+		while( UART_recieveByte() != ECU_READY);
+		_delay_ms(50);
+		UART_sendByte(correct_password);
+	}
+	else
+	{
+		while( UART_recieveByte() != ECU_READY);
+		_delay_ms(50);
+		UART_sendByte(wrong_password);
+	}
+
+	return state;
+}
+
+void save_in_eeprom (uint8 *password)
+{
+	uint8 j=0;
+
+	for(j=0; j < no_of_Password; j++)
+	{
+		EEPROM_writeByte(0x0311+j, password[j]);
+		_delay_ms(20);
+	}
+}
+
+void check_state (uint8 state)
+{
+	uint8 option;
+
+	if( state == correct_password )
+	{
+		UART_sendByte(ECU_READY);
+		_delay_ms(50);
+
+		option = UART_recieveByte();
+		if (option == first_option)
+		{
+			option_one();
+		}
+		else if(option == second_option)
+		{
+			option_two();
+		}
+	}
+	else
+	{
+		state = check_password_first_time();
+		check_state(state);
+	}
+}
+
+
+void option_one (void)
+{
+	uint8 check_pass_eeprom[no_of_Password];
+	uint8 check_re_password[no_of_Password];
+	uint8 state,j;
+
+	UART_sendByte(SEND_PASSWORD);
+	_delay_ms(50);
+
+	for(j=0; j < no_of_Password; j++)
+	{
+		check_re_password[j] = UART_recieveByte();
+	}
+	check_re_password[no_of_Password] = '\0';
+
+	read_Password_eeprom(check_pass_eeprom);
+
+	state = ComparePassword(check_pass_eeprom, check_re_password);
+
+	if( state == correct_password )
+	{
+		while( UART_recieveByte() != SEND_PASSWORD);
+		UART_sendByte(correct_password);
+
+		correct_option_one();
+ 	}
+
+ 	else if (state == wrong_password)
+ 	{
+ 		while( UART_recieveByte() != SEND_PASSWORD);
+ 		UART_sendByte(wrong_password);
+
+		wrong_option_one();
+ 	}
+}
+
+uint8 ComparePassword(uint8 *first_pass,uint8 *second_pass)
+{
+	uint8 i=0;
+
+	for(i=0; i < no_of_Password; i++)
+	{
+		if(first_pass[i] != second_pass[i])
+		{
+			return wrong_password;
+		}
+	}
+	return correct_password;
+}
+
+
+void correct_option_one (void)
+{
+	uint8 state;
+
+	g_wrong_entery = 0;
+	g_secondsCount = 0;
+
+	DcMotor_Rotate(clockwise, maximum_speed);
+	while(g_secondsCount < 15);
+
+	DcMotor_Rotate(stop, 0);
+	while(g_secondsCount < 18);
+
+ 	DcMotor_Rotate(anticlockwise, maximum_speed);
+ 	while(g_secondsCount < 33);
+
+	DcMotor_Rotate(stop, 0);
+
+ 	state = check_password_first_time();
+ 	check_state(state);
+}
+
+void wrong_option_one (void)
+{
+ 	if (g_wrong_entery == max_wrong_pass)
+ 	{
+ 		Buzzer_on();
+ 		g_secondsCount=0;
+ 		while(g_secondsCount < 60);
+
+ 		Buzzer_off();
+ 		g_wrong_entery = 0;
+ 	}
+ 	++g_wrong_entery;
+ 	option_one();
+
+}
+
+void read_Password_eeprom (uint8 *check_pass_eeprom)
+{
+	uint8 j=0;
+
+	for(j=0; j < no_of_Password ; j++)
+	{
+		EEPROM_readByte(0x0311+j, &check_pass_eeprom[j]);
+		_delay_ms(10);
+	}
+}
+
+void option_two(void)
+{
+	uint8 check_pass_eeprom[no_of_Password];
+	uint8 check_re_password[no_of_Password];
+	uint8 state,j;
+
+	UART_sendByte(33);
+
+//	UART_sendByte(SEND_PASSWORD);
+//	_delay_ms(50);
+
+	//UART_sendByte(15);
+
+	for(j=0; j < no_of_Password; j++)
+	{
+		check_re_password[j] = UART_recieveByte();
+	}
+	check_re_password[no_of_Password] = '\0';
+
+	read_Password_eeprom(check_pass_eeprom);
+
+	state = ComparePassword(check_pass_eeprom, check_re_password);
+
+	if( state == correct_password )
+	{
+		while ( UART_recieveByte() != SEND_PASSWORD);
+		UART_sendByte(correct_password);
+		state = check_password_first_time();
+		check_state(state);
+ 	}
+
+ 	else if (state == wrong_password)
+ 	{
+ 		while ( UART_recieveByte() != SEND_PASSWORD);
+ 		UART_sendByte(wrong_password);
+ 		wrong_option_one();
+ 	}
+
+}
+
+
+void timer1ControlCallBack()
+{
+	/* Increment the seconds counter */
+	g_secondsCount++;
+}
